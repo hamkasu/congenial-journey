@@ -8,4 +8,4 @@ Pillow==10.0.0
 python-dotenv==1.0.0
 gunicorn==21.2.0
 numpy==1.24.3
-opencv-python==4.8.0.76
+opencv-python==4.8.0.76"streamlit==1.28.0" 
