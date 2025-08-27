@@ -1,0 +1,7 @@
+.env
+__pycache__/
+uploads/
+processed/
+*.pyc
+.DS_Store
+best.pt  # Remove this line if you want to include your model file

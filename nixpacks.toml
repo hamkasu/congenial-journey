@@ -1,6 +1,0 @@
-[phases]
-setup = "pip install -r requirements.txt"
-install = "echo 'Install complete'"
-
-[start]
-cmd = "gunicorn app:app"

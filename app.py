@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import uuid
@@ -8,55 +8,18 @@ import json
 # Try to import Supabase with fallback
 try:
     from supabase import create_client, Client
+    supabase_available = True
 except ImportError:
-    # Create a mock client if supabase isn't available
-    class MockClient:
-        def __init__(self, *args, **kwargs):
-            pass
-        
-        def table(self, *args, **kwargs):
-            return self
-        
-        def insert(self, *args, **kwargs):
-            return self
-        
-        def update(self, *args, **kwargs):
-            return self
-        
-        def eq(self, *args, **kwargs):
-            return self
-        
-        def execute(self):
-            class MockResult:
-                def __init__(self):
-                    self.data = [{'id': 'mock-id'}]
-            return MockResult()
-    
-    create_client = lambda *args, **kwargs: MockClient()
-    Client = MockClient
+    supabase_available = False
+    print("Supabase client not available, using mock implementation")
 
 # Try to import Ultralytics with fallback
 try:
     from ultralytics import YOLO
+    yolo_available = True
 except ImportError:
-    # Create a mock YOLO class if ultralytics isn't available
-    class MockYOLO:
-        def __init__(self, model_path):
-            pass
-        
-        def __call__(self, image_path):
-            class MockResult:
-                def __init__(self):
-                    self.boxes = None
-                    self.path = image_path
-                
-                def save(self, path):
-                    import shutil
-                    shutil.copy2(self.path, path)
-            
-            return MockResult()
-    
-    YOLO = MockYOLO
+    yolo_available = False
+    print("YOLO not available, using mock implementation")
 
 load_dotenv()
 
@@ -66,37 +29,23 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['PROCESSED_FOLDER'] = 'processed'
 
 # Initialize components with error handling
-try:
-    db_url = os.getenv('SUPABASE_URL', '')
-    db_key = os.getenv('SUPABASE_KEY', '')
-    
-    if db_url and db_key:
-        db = create_client(db_url, db_key)
-    else:
-        # Create a mock database client if credentials aren't available
-        class MockDB:
-            def table(self, name):
-                return self
-            
-            def insert(self, data):
-                return self
-            
-            def update(self, data):
-                return self
-            
-            def eq(self, key, value):
-                return self
-            
-            def execute(self):
-                class MockResult:
-                    def __init__(self):
-                        self.data = [{'id': str(uuid.uuid4())}]
-                return MockResult()
+if supabase_available:
+    try:
+        db_url = os.getenv('SUPABASE_URL', '')
+        db_key = os.getenv('SUPABASE_KEY', '')
         
-        db = MockDB()
-except Exception as e:
-    print(f"Error initializing database: {e}")
-    # Fallback to mock database
+        if db_url and db_key:
+            db = create_client(db_url, db_key)
+            print("Supabase client initialized successfully")
+        else:
+            supabase_available = False
+            print("Supabase credentials not found")
+    except Exception as e:
+        supabase_available = False
+        print(f"Error initializing Supabase: {e}")
+
+# Create mock database client if Supabase isn't available
+if not supabase_available:
     class MockDB:
         def table(self, name):
             return self
@@ -119,29 +68,37 @@ except Exception as e:
     db = MockDB()
 
 # Initialize detector with error handling
-try:
-    detector = YOLO('best.pt')
-except Exception as e:
-    print(f"Error loading model: {e}")
-    # Create a mock detector
+if yolo_available:
+    try:
+        detector = YOLO('best.pt')
+        print("YOLO model loaded successfully")
+    except Exception as e:
+        yolo_available = False
+        print(f"Error loading YOLO model: {e}")
+
+# Create mock detector if YOLO isn't available
+if not yolo_available:
     class MockDetector:
         def __init__(self, model_path):
+            print(f"Using mock detector with model: {model_path}")
             pass
         
         def detect(self, image_path):
             class MockResult:
-                def __init__(self):
+                def __init__(self, image_path):
                     self.boxes = None
                     self.path = image_path
                 
                 def save(self, path):
                     import shutil
+                    # Copy the original image as "processed"
                     shutil.copy2(self.path, path)
             
-            return MockResult()
+            return MockResult(image_path)
         
         def calculate_corrosion_percentage(self, result):
-            return 15.7  # Mock value
+            # Return a mock value for demonstration
+            return 15.7
     
     detector = MockDetector('best.pt')
 
@@ -168,7 +125,7 @@ def upload_image():
     original_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
     file.save(original_path)
     
-    # Store in database (mock implementation)
+    # Store in database
     try:
         result = db.table('images').insert({
             'filename': unique_filename,
@@ -208,7 +165,7 @@ def detect_corrosion():
     # Calculate corrosion percentage
     corrosion_percentage = detector.calculate_corrosion_percentage(result)
     
-    # Store detection results (mock implementation)
+    # Store detection results
     detection_data = {
         'boxes': [],
         'corrosion_percentage': corrosion_percentage
@@ -242,7 +199,7 @@ def add_comment():
     if not image_id or not comment_text:
         return jsonify({'error': 'Missing parameters'}), 400
     
-    # Store comment (mock implementation)
+    # Store comment
     try:
         result = db.table('comments').insert({
             'image_id': image_id,
@@ -260,33 +217,30 @@ def add_comment():
 
 @app.route('/history')
 def get_history():
-    # Mock implementation for history
-    mock_history = [
-        {
-            'id': 'mock-id-1',
-            'filename': 'sample1.jpg',
-            'original_image_url': '/static/sample1.jpg',
-            'processed_image_url': '/static/sample1_processed.jpg',
-            'uploaded_at': '2023-10-15T12:00:00Z'
-        },
-        {
-            'id': 'mock-id-2',
-            'filename': 'sample2.jpg',
-            'original_image_url': '/static/sample2.jpg',
-            'processed_image_url': '/static/sample2_processed.jpg',
-            'uploaded_at': '2023-10-14T10:30:00Z'
-        }
-    ]
-    return jsonify(mock_history)
+    # Return mock data for demonstration
+    try:
+        result = db.table('images').select('*').execute()
+        return jsonify(result.data if hasattr(result, 'data') else [])
+    except Exception as e:
+        print(f"Database error: {e}")
+        # Return mock data if database is not available
+        mock_history = [
+            {
+                'id': 'mock-id-1',
+                'filename': 'sample1.jpg',
+                'original_image_url': '/static/sample1.jpg',
+                'processed_image_url': '/static/sample1_processed.jpg',
+                'uploaded_at': '2023-10-15T12:00:00Z'
+            }
+        ]
+        return jsonify(mock_history)
 
 @app.route('/uploads/<filename>')
 def serve_uploaded_file(filename):
-    from flask import send_from_directory
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/processed/<filename>')
 def serve_processed_file(filename):
-    from flask import send_from_directory
     return send_from_directory(app.config['PROCESSED_FOLDER'], filename)
 
 if __name__ == '__main__':
