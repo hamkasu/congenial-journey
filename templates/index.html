@@ -1,0 +1,52 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corrosion Detection AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Corrosion Detection AI</h1>
+            <p>Upload an image to detect corrosion and add comments</p>
+        </header>
+
+        <div class="upload-section">
+            <input type="file" id="imageUpload" accept="image/*">
+            <button onclick="uploadImage()">Upload Image</button>
+        </div>
+
+        <div id="processingSection" class="hidden">
+            <h2>Processing Image</h2>
+            <div class="image-container">
+                <div>
+                    <h3>Original Image</h3>
+                    <img id="originalImage" src="" alt="Original Image">
+                </div>
+                <div>
+                    <h3>Processed Image</h3>
+                    <img id="processedImage" src="" alt="Processed Image">
+                    <div id="corrosionPercentage"></div>
+                </div>
+            </div>
+
+            <div class="comments-section">
+                <h3>Comments</h3>
+                <div id="commentsList"></div>
+                <textarea id="commentText" placeholder="Add a comment..."></textarea>
+                <button onclick="addComment()">Add Comment</button>
+            </div>
+        </div>
+
+        <div class="history-section">
+            <h2>History</h2>
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
